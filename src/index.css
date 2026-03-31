@@ -1,0 +1,33 @@
+:root {
+  color-scheme: light;
+  font-family: 'Trebuchet MS', 'Avenir Next', 'Segoe UI', sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #fff6ef 0%, #f8e6d5 100%);
+  color: #5d3820;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+input[type='range'] {
+  width: 100%;
+}
