@@ -129,6 +129,11 @@
   color: #a3412f;
 }
 
+.hotspotAmbient {
+  background: rgba(246, 251, 255, 0.94);
+  color: #4873aa;
+}
+
 .emptyPrompt {
   position: absolute;
   left: 50%;

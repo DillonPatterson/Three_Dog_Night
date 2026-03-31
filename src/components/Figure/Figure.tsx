@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Figure as FigureType } from '../../types/figures'
+import type { OccupantThermalState } from '../../types/thermal'
 import { useBedStore } from '../../store/bedStore'
+import { useThermalStore } from '../../store/thermalStore'
+import { formatTemperature } from '../../engine/heatmapRenderer'
 import { getFigureBedScale, getFigureLayout, type FigureHandle } from '../../engine/figureLayout'
 import { HumanShape, DogShape, CatShape } from './FigureShape'
 import styles from './Figure.module.css'
@@ -11,6 +14,7 @@ interface Props {
   bedH: number
   bedWidthIn: number
   bedLengthIn: number
+  thermalState?: OccupantThermalState
   isSelected: boolean
 }
 
@@ -34,12 +38,14 @@ function eventToSvgPoint(svg: SVGSVGElement, clientX: number, clientY: number) {
   return matrix ? point.matrixTransform(matrix.inverse()) : { x: 50, y: 90 }
 }
 
-export function Figure({ figure, bedW, bedH, bedWidthIn, bedLengthIn, isSelected }: Props) {
+export function Figure({ figure, bedW, bedH, bedWidthIn, bedLengthIn, thermalState, isSelected }: Props) {
   const updatePosition = useBedStore((state) => state.updateFigurePosition)
   const updateRotation = useBedStore((state) => state.updateFigureRotation)
   const updateFigureSliders = useBedStore((state) => state.updateFigureSliders)
   const flipFigure = useBedStore((state) => state.flipFigure)
   const selectFigure = useBedStore((state) => state.selectFigure)
+  const ambientTemp = useThermalStore((state) => state.ambientTemp)
+  const useCelsius = useThermalStore((state) => state.useCelsius)
 
   const [settling, setSettling] = useState(true)
   const dragStart = useRef({ mx: 0, my: 0, fx: 0, fy: 0 })
@@ -62,6 +68,10 @@ export function Figure({ figure, bedW, bedH, bedWidthIn, bedLengthIn, isSelected
   const py = figure.rootPosition.y * bedH
   const flip = figure.facingDirection === 'left' ? -1 : 1
   const rotDeg = (figure.rootRotation * 180) / Math.PI
+  const warmthAnchor = layout.kind === 'human' ? layout.chest.center : layout.body.center
+  const warmthTone = thermalState
+    ? clamp((thermalState.warmthC - ambientTemp) / Math.max(1.5, 34 - ambientTemp), 0, 1)
+    : 0
 
   const onMouseDown = useCallback((event: React.MouseEvent) => {
     event.preventDefault()
@@ -274,6 +284,22 @@ export function Figure({ figure, bedW, bedH, bedWidthIn, bedLengthIn, isSelected
           </g>
         ) : null}
       </svg>
+
+      {thermalState ? (
+        <div
+          className={styles.warmthBubble}
+          style={{
+            left: `${warmthAnchor.x}%`,
+            top: `${(warmthAnchor.y / VB_H) * 100}%`,
+            transform: `translate(-50%, -50%) scaleX(${flip})`,
+            background: `rgba(${Math.round(255 - warmthTone * 40)}, ${Math.round(248 - warmthTone * 70)}, ${Math.round(241 - warmthTone * 150)}, 0.96)`,
+            borderColor: `rgba(${Math.round(214 + warmthTone * 18)}, ${Math.round(150 + warmthTone * 12)}, ${Math.round(98 - warmthTone * 22)}, 0.92)`,
+          }}
+        >
+          <span className={styles.warmthLabel}>Warm</span>
+          <span className={styles.warmthValue}>{formatTemperature(thermalState.warmthC, useCelsius)}</span>
+        </div>
+      ) : null}
     </div>
   )
 }

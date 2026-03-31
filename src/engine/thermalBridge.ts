@@ -1,21 +1,28 @@
-import type { BlanketZone, BedConfig } from '../types/bed'
+import type { BedConfig, BlanketZone, BlanketWeight } from '../types/bed'
 import type { Figure } from '../types/figures'
-import type { HeatEmitter, ThermalScene } from '../types/thermal'
+import type { HeatEmitter, OccupantThermalState, ThermalScene } from '../types/thermal'
 import { getFigureBedScale, getFigureLayout, transformLocalPoint } from './figureLayout'
 import { contactAreaSqM, effectiveHeatWatts, insulationPenalty } from './heatLookup'
 
-const BLANKET_TEMP_BONUS = {
+const BLANKET_OCCUPANT_BONUS: Record<BlanketWeight, number> = {
   none: 0,
-  light: 0.9,
-  medium: 1.7,
-  heavy: 2.5,
+  light: 0.5,
+  medium: 1.05,
+  heavy: 1.55,
 }
 
-const BLANKET_SPREAD_BONUS = {
+const BLANKET_SURFACE_BONUS: Record<BlanketWeight, number> = {
+  none: 0,
+  light: 0.7,
+  medium: 1.35,
+  heavy: 2.05,
+}
+
+const BLANKET_SPREAD_BONUS: Record<BlanketWeight, number> = {
   none: 1,
-  light: 1.04,
-  medium: 1.08,
-  heavy: 1.13,
+  light: 1.05,
+  medium: 1.09,
+  heavy: 1.15,
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -26,9 +33,9 @@ function distance(a: { x: number; y: number }, b: { x: number; y: number }): num
   return Math.hypot(a.x - b.x, a.y - b.y)
 }
 
-function underBlanket(point: { x: number; y: number }, blanketZone: BlanketZone | null): BlanketZone['weight'] | null {
-  if (!blanketZone) return null
+function blanketWeightAt(point: { x: number; y: number }, blanketZone: BlanketZone | null): BlanketWeight {
   if (
+    blanketZone &&
     point.x >= blanketZone.x &&
     point.x <= blanketZone.x + blanketZone.width &&
     point.y >= blanketZone.y &&
@@ -36,30 +43,108 @@ function underBlanket(point: { x: number; y: number }, blanketZone: BlanketZone 
   ) {
     return blanketZone.weight
   }
-  return null
+
+  return 'none'
 }
 
-function figureSurfacePeak(
+function warmthAnchor(figure: Figure, bedConfig: BedConfig) {
+  const scale = getFigureBedScale(figure, bedConfig.widthIn, bedConfig.lengthIn)
+  const layout = getFigureLayout(figure)
+  const localPoint = layout.kind === 'human' ? layout.chest.center : layout.body.center
+  return {
+    scale,
+    layout,
+    point: transformLocalPoint(localPoint, figure, scale),
+  }
+}
+
+function figureWeight(figure: Figure): number {
+  if (figure.metadata.kind === 'human') return figure.metadata.weight
+  return figure.metadata.weight
+}
+
+function ageAdjustment(figure: Figure): number {
+  if (figure.metadata.kind !== 'human') return 0
+  return clamp((32 - figure.metadata.age) * 0.02, -0.45, 0.35)
+}
+
+function poseShelterBonus(figure: Figure): number {
+  const curl = clamp(figure.poseSliders.curl / 100, 0, 1)
+  const stretch = clamp(figure.poseSliders.stretch / 100, 0, 1)
+  return curl * 1.15 - stretch * 0.65
+}
+
+function contactRadiusNormalized(contactAreaSqMValue: number, bedAreaSqM: number): number {
+  const normalizedArea = contactAreaSqMValue / Math.max(bedAreaSqM, 0.25)
+  return Math.sqrt(normalizedArea / Math.PI)
+}
+
+function proximityMetrics(
+  centerA: { x: number; y: number },
+  centerB: { x: number; y: number },
+  radiusA: number,
+  radiusB: number,
+) {
+  const dist = distance(centerA, centerB)
+  const contactRange = radiusA + radiusB
+  const softness = 0.14
+  const gap = dist - contactRange
+  const contact = clamp(-gap / Math.max(contactRange, 0.02), 0, 1)
+  const proximity = clamp(1 - gap / softness, 0, 1)
+
+  return {
+    distance: dist,
+    contact,
+    proximity,
+  }
+}
+
+function occupantWarmthC(
   figure: Figure,
   ambientTemp: number,
-  nearbyCount: number,
-  blanketWeight: BlanketZone['weight'] | null,
+  blanketWeight: BlanketWeight,
+  watts: number,
+  contactAreaSqMValue: number,
+  crowding: number,
+  directContact: number,
 ): number {
-  const watts = effectiveHeatWatts(figure.metadata)
-  const contactArea = contactAreaSqM(
-    figure.metadata,
-    figure.poseSliders.curl,
-    figure.poseSliders.stretch,
-  )
-  const heatFlux = watts / Math.max(contactArea, 0.02)
-  const ambientShift = (20 - ambientTemp) * 0.08
-  const clusterBoost = nearbyCount * 0.55
-  const furPenalty = insulationPenalty(figure.metadata) * 1.8
-  const blanketBonus = blanketWeight ? BLANKET_TEMP_BONUS[blanketWeight] : 0
-  const baseDelta = 1.8 + Math.sqrt(heatFlux) * 0.34 + ambientShift + clusterBoost - furPenalty
+  const flux = watts / Math.max(contactAreaSqMValue, 0.02)
+  const massBonus = Math.sqrt(Math.max(figureWeight(figure), 2)) * 0.09
+  const ambientLift = (ambientTemp - 20) * 0.11
+  const shelter = poseShelterBonus(figure)
+  const furBenefit =
+    figure.metadata.kind === 'human'
+      ? 0
+      : insulationPenalty(figure.metadata) * 1.25
+  const crowdingLift = crowding * 0.8 + directContact * 1.1
+  const blanketLift = BLANKET_OCCUPANT_BONUS[blanketWeight]
+  const ageLift = ageAdjustment(figure)
+  const baseDelta = 7.1 + Math.sqrt(flux) * 0.18 + massBonus + ambientLift + shelter + crowdingLift + blanketLift + furBenefit + ageLift
+  const cap = figure.metadata.kind === 'human' ? 34.6 : figure.type === 'dog' ? 34.2 : 33.9
 
-  const peakCap = figure.metadata.kind === 'human' ? 35.3 : 34.5
-  return clamp(ambientTemp + baseDelta + blanketBonus, ambientTemp + 2.8, peakCap)
+  return clamp(ambientTemp + baseDelta, ambientTemp + 4.8, cap)
+}
+
+function bedSurfacePeakC(
+  figure: Figure,
+  ambientTemp: number,
+  blanketWeight: BlanketWeight,
+  occupantWarmth: number,
+  watts: number,
+  contactAreaSqMValue: number,
+  crowding: number,
+  directContact: number,
+): number {
+  const transferDensity = watts / Math.max(contactAreaSqMValue, 0.02)
+  const furTransferPenalty =
+    figure.metadata.kind === 'human'
+      ? 0.15
+      : insulationPenalty(figure.metadata) * 1.6
+  const blanketLift = BLANKET_SURFACE_BONUS[blanketWeight]
+  const clusteringLift = crowding * 0.35 + directContact * 0.8
+  const peak = occupantWarmth - 1.4 + Math.sqrt(transferDensity) * 0.08 + blanketLift + clusteringLift - furTransferPenalty
+
+  return clamp(peak, ambientTemp + 2.2, occupantWarmth - 0.2)
 }
 
 export function computeThermalFromPose(
@@ -68,36 +153,77 @@ export function computeThermalFromPose(
   ambientTemp: number,
   bedConfig: BedConfig,
 ): ThermalScene {
-  const scales = figures.map((figure) =>
-    getFigureBedScale(figure, bedConfig.widthIn, bedConfig.lengthIn),
+  const bedAreaSqM = bedConfig.widthIn * 0.0254 * bedConfig.lengthIn * 0.0254
+  const anchors = figures.map((figure) => warmthAnchor(figure, bedConfig))
+  const contactAreas = figures.map((figure) =>
+    contactAreaSqM(figure.metadata, figure.poseSliders.curl, figure.poseSliders.stretch),
   )
+  const contactRadii = contactAreas.map((area) => contactRadiusNormalized(area, bedAreaSqM))
+  const watts = figures.map((figure) => effectiveHeatWatts(figure.metadata))
 
-  const figureCenters = figures.map((figure, index) =>
-    transformLocalPoint({ x: 50, y: 90 }, figure, scales[index]),
-  )
+  const crowding = figures.map(() => 0)
+  const directContact = figures.map(() => 0)
+
+  for (let i = 0; i < figures.length; i++) {
+    for (let j = i + 1; j < figures.length; j++) {
+      const metrics = proximityMetrics(
+        anchors[i].point,
+        anchors[j].point,
+        contactRadii[i],
+        contactRadii[j],
+      )
+
+      crowding[i] += metrics.proximity
+      crowding[j] += metrics.proximity
+      directContact[i] += metrics.contact
+      directContact[j] += metrics.contact
+    }
+  }
+
+  const occupants: OccupantThermalState[] = figures.map((figure, index) => {
+    const blanketWeight = blanketWeightAt(anchors[index].point, blanketZone)
+    const warmthC = occupantWarmthC(
+      figure,
+      ambientTemp,
+      blanketWeight,
+      watts[index],
+      contactAreas[index],
+      crowding[index],
+      directContact[index],
+    )
+    const surfacePeakC = bedSurfacePeakC(
+      figure,
+      ambientTemp,
+      blanketWeight,
+      warmthC,
+      watts[index],
+      contactAreas[index],
+      crowding[index],
+      directContact[index],
+    )
+
+    return {
+      figureId: figure.figureId,
+      x: anchors[index].point.x,
+      y: anchors[index].point.y,
+      warmthC,
+      surfacePeakC,
+      crowding: crowding[index],
+      contact: directContact[index],
+    }
+  })
 
   const emitters: HeatEmitter[] = []
 
   figures.forEach((figure, index) => {
-    const layout = getFigureLayout(figure)
-    const nearbyCount = figureCenters.reduce((count, point, otherIndex) => {
-      if (otherIndex === index) return count
-      return count + (distance(point, figureCenters[index]) < 0.18 ? 1 : 0)
-    }, 0)
+    const { layout, scale } = anchors[index]
 
-    const peakTemp = figureSurfacePeak(
-      figure,
-      ambientTemp,
-      nearbyCount,
-      underBlanket(figureCenters[index], blanketZone),
-    )
-
-    for (const emitter of layout.emitters) {
-      const center = transformLocalPoint(emitter.center, figure, scales[index])
-      const blanketWeight = underBlanket(center, blanketZone)
-      const spreadMultiplier = blanketWeight ? BLANKET_SPREAD_BONUS[blanketWeight] : 1
+    layout.emitters.forEach((emitter) => {
+      const center = transformLocalPoint(emitter.center, figure, scale)
+      const blanketWeight = blanketWeightAt(center, blanketZone)
+      const spreadMultiplier = BLANKET_SPREAD_BONUS[blanketWeight]
       const sigma = clamp(
-        (emitter.radius / 100) * Math.max(scales[index].width, scales[index].height) * spreadMultiplier,
+        (emitter.radius / 100) * Math.max(scale.width, scale.height) * spreadMultiplier,
         0.028,
         0.19,
       )
@@ -108,14 +234,15 @@ export function computeThermalFromPose(
         cx: center.x,
         cy: center.y,
         sigma,
-        peakTemp: blanketWeight ? peakTemp + BLANKET_TEMP_BONUS[blanketWeight] * 0.35 : peakTemp,
-        weight: emitter.weight + nearbyCount * 0.02,
+        peakTemp: occupants[index].surfacePeakC + BLANKET_SURFACE_BONUS[blanketWeight] * 0.18,
+        weight: emitter.weight * (1 + crowding[index] * 0.08 + directContact[index] * 0.16),
       })
-    }
+    })
   })
 
   return {
     ambientTemp,
     emitters,
+    occupants,
   }
 }

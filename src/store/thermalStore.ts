@@ -13,6 +13,7 @@ function createEmptyGrid(ambientTemp: number): ThermalGrid {
     ambientTemp,
     maxTemp: ambientTemp,
     hotspots: [],
+    labels: [],
   }
 }
 

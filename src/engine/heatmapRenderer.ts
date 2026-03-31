@@ -1,4 +1,4 @@
-import type { Hotspot, ThermalGrid, ThermalScene } from '../types/thermal'
+import type { HeatLabel, Hotspot, ThermalGrid, ThermalScene } from '../types/thermal'
 import { heatmapColorRGB } from '../utils/color'
 
 export const GRID_W = 96
@@ -7,6 +7,7 @@ export const GRID_H = 128
 function emptyGrid(ambientTemp: number): ThermalGrid {
   const data = new Float32Array(GRID_W * GRID_H)
   data.fill(ambientTemp)
+
   return {
     data,
     width: GRID_W,
@@ -14,6 +15,7 @@ function emptyGrid(ambientTemp: number): ThermalGrid {
     ambientTemp,
     maxTemp: ambientTemp,
     hotspots: [],
+    labels: [],
   }
 }
 
@@ -82,17 +84,90 @@ function findHotspots(data: Float32Array, ambientTemp: number): Hotspot[] {
     const tooClose = selected.some((spot) => {
       const dx = spot.x - candidate.x
       const dy = spot.y - candidate.y
-      return Math.hypot(dx, dy) < 0.13
+      return Math.hypot(dx, dy) < 0.12
     })
 
-    if (!tooClose) {
-      selected.push(candidate)
-    }
-
+    if (!tooClose) selected.push(candidate)
     if (selected.length === 4) break
   }
 
   return selected
+}
+
+function findLabelForThreshold(
+  data: Float32Array,
+  targetTemp: number,
+  existing: HeatLabel[],
+): HeatLabel | null {
+  let bestScore = Number.POSITIVE_INFINITY
+  let best: HeatLabel | null = null
+
+  for (let y = 10; y < GRID_H - 10; y++) {
+    for (let x = 10; x < GRID_W - 10; x++) {
+      const temp = data[y * GRID_W + x]
+      const diff = Math.abs(temp - targetTemp)
+      const edgePenalty = Math.abs(x - GRID_W / 2) * 0.003
+      const score = diff + edgePenalty
+
+      if (score >= bestScore) continue
+
+      const candidate = {
+        x: x / GRID_W,
+        y: y / GRID_H,
+        tempC: temp,
+        emphasis: targetTemp < temp ? 'warm' : 'ambient',
+      } as HeatLabel
+
+      const tooClose = existing.some((label) => Math.hypot(label.x - candidate.x, label.y - candidate.y) < 0.15)
+      if (tooClose) continue
+
+      bestScore = score
+      best = candidate
+    }
+  }
+
+  return best
+}
+
+function buildHeatLabels(data: Float32Array, ambientTemp: number, maxTemp: number, hotspots: Hotspot[]): HeatLabel[] {
+  const labels: HeatLabel[] = hotspots.slice(0, 1).map((spot) => ({
+    x: spot.x,
+    y: spot.y,
+    tempC: spot.tempC,
+    emphasis: 'hot',
+  }))
+
+  const range = maxTemp - ambientTemp
+  if (range < 1.2) return labels
+
+  const thresholds = [
+    ambientTemp + range * 0.28,
+    ambientTemp + range * 0.52,
+    ambientTemp + range * 0.78,
+  ]
+
+  thresholds.forEach((threshold, index) => {
+    const label = findLabelForThreshold(data, threshold, labels)
+    if (!label) return
+
+    labels.push({
+      ...label,
+      emphasis: index === 0 ? 'ambient' : index === thresholds.length - 1 ? 'hot' : 'warm',
+    })
+  })
+
+  return labels
+}
+
+function contourThresholds(grid: ThermalGrid): number[] {
+  const range = grid.maxTemp - grid.ambientTemp
+  if (range < 1.5) return []
+
+  return [
+    grid.ambientTemp + range * 0.3,
+    grid.ambientTemp + range * 0.55,
+    grid.ambientTemp + range * 0.8,
+  ]
 }
 
 export function computeGrid(scene: ThermalScene): ThermalGrid {
@@ -133,14 +208,58 @@ export function computeGrid(scene: ThermalScene): ThermalGrid {
     maxTemp = Math.max(maxTemp, smoothed[i])
   }
 
+  const hotspots = findHotspots(smoothed, scene.ambientTemp)
+
   return {
     data: smoothed,
     width: GRID_W,
     height: GRID_H,
     ambientTemp: scene.ambientTemp,
     maxTemp,
-    hotspots: findHotspots(smoothed, scene.ambientTemp),
+    hotspots,
+    labels: buildHeatLabels(smoothed, scene.ambientTemp, maxTemp, hotspots),
   }
+}
+
+function drawContours(ctx: CanvasRenderingContext2D, grid: ThermalGrid, width: number, height: number) {
+  const thresholds = contourThresholds(grid)
+  if (thresholds.length === 0) return
+
+  ctx.save()
+  ctx.lineWidth = 1
+
+  thresholds.forEach((threshold, index) => {
+    ctx.beginPath()
+    ctx.strokeStyle = `rgba(255,255,255,${0.18 + index * 0.08})`
+
+    for (let gy = 0; gy < GRID_H - 1; gy++) {
+      for (let gx = 0; gx < GRID_W - 1; gx++) {
+        const v00 = grid.data[gy * GRID_W + gx]
+        const v10 = grid.data[gy * GRID_W + gx + 1]
+        const v01 = grid.data[(gy + 1) * GRID_W + gx]
+        const v11 = grid.data[(gy + 1) * GRID_W + gx + 1]
+
+        const above00 = v00 >= threshold
+        const above10 = v10 >= threshold
+        const above01 = v01 >= threshold
+        const above11 = v11 >= threshold
+
+        if (above00 === above10 && above10 === above01 && above01 === above11) continue
+
+        const px0 = (gx / GRID_W) * width
+        const py0 = (gy / GRID_H) * height
+        const px1 = ((gx + 1) / GRID_W) * width
+        const py1 = ((gy + 1) / GRID_H) * height
+
+        ctx.moveTo((px0 + px1) / 2 - 1.5, (py0 + py1) / 2)
+        ctx.lineTo((px0 + px1) / 2 + 1.5, (py0 + py1) / 2)
+      }
+    }
+
+    ctx.stroke()
+  })
+
+  ctx.restore()
 }
 
 export function drawHeatmap(canvas: HTMLCanvasElement, grid: ThermalGrid): void {
@@ -180,6 +299,7 @@ export function drawHeatmap(canvas: HTMLCanvasElement, grid: ThermalGrid): void 
   }
 
   ctx.putImageData(imageData, 0, 0)
+  drawContours(ctx, grid, width, height)
 }
 
 export function formatTemperature(tempC: number, useCelsius: boolean): string {

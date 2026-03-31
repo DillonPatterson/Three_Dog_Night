@@ -83,7 +83,7 @@ export function PosePanel() {
       <div className={styles.header}>
         <div>
           <div className={styles.title}>{titleForFigure(figure)}</div>
-          <div className={styles.hint}>Drag the body to move. Blue handles pose the limbs directly.</div>
+          <div className={styles.hint}>Drag the body to move. Blue handles pose the limbs directly. The center badge is local warmth, not exact body temperature.</div>
         </div>
         <div className={styles.actions}>
           <button className={styles.secondaryBtn} onClick={() => flipFigure(figure.figureId)}>

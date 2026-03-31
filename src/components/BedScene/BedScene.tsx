@@ -3,6 +3,7 @@ import { useBedStore } from '../../store/bedStore'
 import { useThermalStore } from '../../store/thermalStore'
 import { computeThermalFromPose } from '../../engine/thermalBridge'
 import { drawHeatmap, formatTemperature } from '../../engine/heatmapRenderer'
+import type { OccupantThermalState } from '../../types/thermal'
 import { Figure } from '../Figure/Figure'
 import styles from './BedScene.module.css'
 
@@ -36,6 +37,7 @@ export function BedScene() {
   const ambientTemp = useThermalStore((state) => state.ambientTemp)
   const useCelsius = useThermalStore((state) => state.useCelsius)
   const setScene = useThermalStore((state) => state.setScene)
+  const scene = useThermalStore((state) => state.scene)
   const grid = useThermalStore((state) => state.grid)
 
   useEffect(() => {
@@ -120,6 +122,11 @@ export function BedScene() {
 
   const twoPillows = bedConfig.widthIn >= 60
   const legendMid = (grid.ambientTemp + grid.maxTemp) / 2
+  const occupantStates = useMemo(() => {
+    const map = new Map<string, OccupantThermalState>()
+    scene?.occupants.forEach((occupant) => map.set(occupant.figureId, occupant))
+    return map
+  }, [scene])
 
   return (
     <div ref={containerRef} className={styles.container} onClick={() => selectFigure(null)}>
@@ -175,19 +182,19 @@ export function BedScene() {
 
         <canvas ref={canvasRef} className={styles.heatmapCanvas} />
 
-        {grid.hotspots.map((spot, index) => (
+        {grid.labels.map((label, index) => (
           <div
-            key={`${spot.x}-${spot.y}-${index}`}
-            className={`${styles.hotspot} ${index === 0 ? styles.hotspotPrimary : ''}`}
-            style={{ left: spot.x * bedW, top: spot.y * bedH }}
+            key={`${label.x}-${label.y}-${index}`}
+            className={`${styles.hotspot} ${label.emphasis === 'hot' ? styles.hotspotPrimary : label.emphasis === 'ambient' ? styles.hotspotAmbient : ''}`}
+            style={{ left: label.x * bedW, top: label.y * bedH }}
           >
-            {formatTemperature(spot.tempC, useCelsius)}
+            {formatTemperature(label.tempC, useCelsius)}
           </div>
         ))}
 
         {figures.length > 0 ? (
           <div className={styles.legend}>
-            <div className={styles.legendTitle}>Surface temp</div>
+            <div className={styles.legendTitle}>Mattress surface temp</div>
             <div className={styles.legendScale} />
             <div className={styles.legendTicks}>
               <span>{formatTemperature(grid.ambientTemp, useCelsius)}</span>
@@ -226,6 +233,7 @@ export function BedScene() {
               bedH={bedH}
               bedWidthIn={bedConfig.widthIn}
               bedLengthIn={bedConfig.lengthIn}
+              thermalState={occupantStates.get(figure.figureId)}
               isSelected={figure.figureId === selectedFigureId}
             />
           ))}
