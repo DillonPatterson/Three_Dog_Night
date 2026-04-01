@@ -1,9 +1,11 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  width: 100%;
+  max-width: 286px;
+  max-height: 100%;
   overflow-y: auto;
-  padding: 18px 16px 20px;
+  padding: 0;
   gap: 14px;
 }
 
@@ -12,12 +14,12 @@
   flex-direction: column;
   gap: 10px;
   padding: 14px;
-  border-radius: 20px;
-  background: rgba(255, 247, 238, 0.72);
+  border-radius: 22px;
+  background: rgba(255, 249, 244, 0.84);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.8) inset,
-    0 16px 30px rgba(126, 86, 52, 0.08);
-  backdrop-filter: blur(10px);
+    0 18px 32px rgba(126, 86, 52, 0.12);
+  backdrop-filter: blur(14px);
 }
 
 .sectionHeader {
@@ -74,7 +76,7 @@
 
 .quickAddRow {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -83,9 +85,9 @@
   border-radius: 16px;
   background: linear-gradient(180deg, #ffb68c 0%, #f2855a 100%);
   color: #fffaf6;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  padding: 11px 14px;
+  padding: 11px 10px;
   cursor: pointer;
   transition: transform 0.14s ease, box-shadow 0.14s ease;
   box-shadow: 0 10px 22px rgba(220, 122, 70, 0.26);
@@ -179,4 +181,14 @@
   padding: 10px 12px;
   cursor: pointer;
   transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+
+@media (max-width: 720px) {
+  .sidebar {
+    max-width: none;
+  }
+
+  .quickAddRow {
+    grid-template-columns: 1fr;
+  }
 }

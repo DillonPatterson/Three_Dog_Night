@@ -20,14 +20,14 @@ const BLANKET_WEIGHTS: Array<{ id: BlanketWeight; label: string }> = [
 
 function figureSummary(figure: ReturnType<typeof useBedStore.getState>['figures'][0]): string {
   if (figure.metadata.kind === 'human') {
-    return `${figure.metadata.height} cm, ${figure.metadata.weight} kg`
+    return `${figure.metadata.height} cm • ${figure.metadata.weight} kg`
   }
 
   if (figure.metadata.kind === 'dog') {
-    return `${figure.metadata.breed}, ${figure.metadata.weight} kg`
+    return `${figure.metadata.breed} • ${figure.metadata.weight} kg`
   }
 
-  return `${figure.metadata.breed}, ${figure.metadata.weight} kg`
+  return `${figure.metadata.breed} • ${figure.metadata.weight} kg`
 }
 
 function figureLabel(figure: ReturnType<typeof useBedStore.getState>['figures'][0]): string {
@@ -147,7 +147,7 @@ export function Controls() {
         <div className={styles.sectionHeader}>
           <div className={styles.sectionTitle}>Room</div>
           <div className={styles.sectionHint}>
-            Warmest patch: {formatTemperature(grid.maxTemp, useCelsius)}
+            Warmest surface: {formatTemperature(grid.maxTemp, useCelsius)}
           </div>
         </div>
         <div className={styles.sliderLabel}>

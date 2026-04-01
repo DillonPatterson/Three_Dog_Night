@@ -3,55 +3,17 @@
   pointer-events: all;
   cursor: grab;
   user-select: none;
+  touch-action: none;
   transform-origin: center center;
-  filter: drop-shadow(0 10px 18px rgba(75, 52, 27, 0.16));
+  filter: drop-shadow(0 8px 14px rgba(75, 52, 27, 0.14));
 }
 
 .root:active {
   cursor: grabbing;
 }
 
-.handle {
-  cursor: pointer;
-}
-
-.handle:hover circle:first-of-type {
-  fill: rgba(72, 154, 255, 0.34);
-}
-
-.rotateHandle,
-.flipBtn {
-  cursor: pointer;
-}
-
-.warmthBubble {
-  position: absolute;
-  min-width: 46px;
-  padding: 4px 7px 5px;
-  border: 1px solid rgba(214, 150, 98, 0.92);
-  border-radius: 12px;
-  box-shadow: 0 6px 14px rgba(126, 86, 52, 0.18);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  pointer-events: none;
-}
-
-.warmthLabel {
-  font-size: 8px;
-  line-height: 1;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #906747;
-  text-transform: uppercase;
-}
-
-.warmthValue {
-  font-size: 11px;
-  line-height: 1;
-  font-weight: 700;
-  color: #5f3420;
+.selected {
+  z-index: 6;
 }
 
 @keyframes settle {

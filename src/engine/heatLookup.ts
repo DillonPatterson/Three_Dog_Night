@@ -5,23 +5,27 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
+function restingAnimalOutput(weightKg: number, coefficient: number): number {
+  return coefficient * Math.pow(Math.max(weightKg, 1), 0.75)
+}
+
 export function effectiveHeatWatts(meta: FigureMeta): number {
   if (meta.kind === 'human') {
     const surfaceArea = 0.007184 * Math.pow(meta.height, 0.725) * Math.pow(meta.weight, 0.425)
     const restingOutput = 58 * surfaceArea
-    return restingOutput * 0.38
+    return restingOutput * 0.38 * (meta.runsWarm ? 1.08 : 1)
   }
 
   if (meta.kind === 'dog') {
     const arch = DOG_ARCHETYPES[meta.breedArchetype]
-    if (!arch) return 12
-    return meta.weight * 4.4 * arch.thermalMultiplier * arch.coatMultiplier
+    if (!arch) return 18
+    return restingAnimalOutput(meta.weight, 3.7) * arch.thermalMultiplier * (meta.runsWarm ? 1.06 : 1)
   }
 
   if (meta.kind === 'cat') {
     const arch = CAT_ARCHETYPES[meta.catArchetype]
-    if (!arch) return 7
-    return meta.weight * 3.6 * arch.thermalMultiplier * arch.coatMultiplier
+    if (!arch) return 9
+    return restingAnimalOutput(meta.weight, 3.1) * arch.thermalMultiplier * (meta.runsWarm ? 1.05 : 1)
   }
 
   return 10
@@ -40,7 +44,7 @@ export function contactAreaSqM(meta: FigureMeta, curl: number, stretch: number):
 
   if (meta.kind === 'dog') {
     const arch = DOG_ARCHETYPES[meta.breedArchetype]
-    const base = clamp(meta.weight * 0.0036, 0.04, 0.22)
+    const base = clamp(0.014 * Math.pow(Math.max(meta.weight, 1), 0.72), 0.05, 0.18)
     const shapeFactor =
       arch?.id === 'LONG_LOW'
         ? 1.12
@@ -54,7 +58,7 @@ export function contactAreaSqM(meta: FigureMeta, curl: number, stretch: number):
 
   if (meta.kind === 'cat') {
     const arch = CAT_ARCHETYPES[meta.catArchetype]
-    const base = clamp(meta.weight * 0.0032, 0.03, 0.09)
+    const base = clamp(0.012 * Math.pow(Math.max(meta.weight, 1), 0.7), 0.028, 0.07)
     const shapeFactor = arch?.id === 'LONG' ? 1.08 : 0.94
     return clamp(base * shapeFactor * (0.9 + curlFactor * 0.14 - stretchFactor * 0.08), 0.028, 0.1)
   }

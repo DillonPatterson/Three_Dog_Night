@@ -26,6 +26,7 @@ function defaultMetadata(type: FigureType): FigureMeta {
       weight: 74,
       gender: 'person',
       age: 32,
+      runsWarm: false,
     }
   }
 
@@ -36,6 +37,7 @@ function defaultMetadata(type: FigureType): FigureMeta {
       gender: 'female',
       breed: 'Shepherd mix',
       breedArchetype: 'MEDIUM_ATHLETIC',
+      runsWarm: false,
     }
   }
 
@@ -45,6 +47,7 @@ function defaultMetadata(type: FigureType): FigureMeta {
     gender: 'female',
     breed: 'Tabby',
     catArchetype: 'COMPACT',
+    runsWarm: false,
   }
 }
 

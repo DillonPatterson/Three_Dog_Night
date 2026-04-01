@@ -21,6 +21,7 @@ export interface HumanMeta {
   weight: number   // kg
   gender: string
   age: number
+  runsWarm: boolean
 }
 
 export interface DogMeta {
@@ -29,6 +30,7 @@ export interface DogMeta {
   gender: string
   breed: string
   breedArchetype: DogArchetypeId
+  runsWarm: boolean
 }
 
 export interface CatMeta {
@@ -37,6 +39,7 @@ export interface CatMeta {
   gender: string
   breed: string
   catArchetype: CatArchetypeId
+  runsWarm: boolean
 }
 
 export type FigureMeta = HumanMeta | DogMeta | CatMeta

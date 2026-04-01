@@ -68,6 +68,10 @@ function ageAdjustment(figure: Figure): number {
   return clamp((32 - figure.metadata.age) * 0.02, -0.45, 0.35)
 }
 
+function warmBias(figure: Figure): number {
+  return figure.metadata.runsWarm ? 0.65 : 0
+}
+
 function poseShelterBonus(figure: Figure): number {
   const curl = clamp(figure.poseSliders.curl / 100, 0, 1)
   const stretch = clamp(figure.poseSliders.stretch / 100, 0, 1)
@@ -119,10 +123,22 @@ function occupantWarmthC(
   const crowdingLift = crowding * 0.8 + directContact * 1.1
   const blanketLift = BLANKET_OCCUPANT_BONUS[blanketWeight]
   const ageLift = ageAdjustment(figure)
-  const baseDelta = 7.1 + Math.sqrt(flux) * 0.18 + massBonus + ambientLift + shelter + crowdingLift + blanketLift + furBenefit + ageLift
-  const cap = figure.metadata.kind === 'human' ? 34.6 : figure.type === 'dog' ? 34.2 : 33.9
+  const bias = warmBias(figure)
+  const baseDelta =
+    7.1 +
+    Math.sqrt(flux) * 0.18 +
+    massBonus +
+    ambientLift +
+    shelter +
+    crowdingLift +
+    blanketLift +
+    furBenefit +
+    ageLift +
+    bias
+  const cap = figure.metadata.kind === 'human' ? 34.9 : figure.type === 'dog' ? 34.4 : 34.1
+  const floor = figure.metadata.kind === 'human' ? ambientTemp + 7.6 : figure.type === 'dog' ? ambientTemp + 6.4 : ambientTemp + 5.8
 
-  return clamp(ambientTemp + baseDelta, ambientTemp + 4.8, cap)
+  return clamp(ambientTemp + baseDelta, floor, cap)
 }
 
 function bedSurfacePeakC(
@@ -142,7 +158,14 @@ function bedSurfacePeakC(
       : insulationPenalty(figure.metadata) * 1.6
   const blanketLift = BLANKET_SURFACE_BONUS[blanketWeight]
   const clusteringLift = crowding * 0.35 + directContact * 0.8
-  const peak = occupantWarmth - 1.4 + Math.sqrt(transferDensity) * 0.08 + blanketLift + clusteringLift - furTransferPenalty
+  const peak =
+    occupantWarmth -
+    1.4 +
+    Math.sqrt(transferDensity) * 0.08 +
+    blanketLift +
+    clusteringLift +
+    warmBias(figure) * 0.45 -
+    furTransferPenalty
 
   return clamp(peak, ambientTemp + 2.2, occupantWarmth - 0.2)
 }

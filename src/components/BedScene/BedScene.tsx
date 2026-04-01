@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useBedStore } from '../../store/bedStore'
 import { useThermalStore } from '../../store/thermalStore'
 import { computeThermalFromPose } from '../../engine/thermalBridge'
-import { drawHeatmap, formatTemperature } from '../../engine/heatmapRenderer'
+import { drawHeatmap, formatFieldTemperature, formatTemperature } from '../../engine/heatmapRenderer'
 import type { OccupantThermalState } from '../../types/thermal'
 import { Figure } from '../Figure/Figure'
 import styles from './BedScene.module.css'
@@ -29,6 +29,7 @@ export function BedScene() {
 
   const bedConfig = useBedStore((state) => state.bedConfig)
   const figures = useBedStore((state) => state.figures)
+  const addFigure = useBedStore((state) => state.addFigure)
   const blanketZone = useBedStore((state) => state.blanketZone)
   const updateBlanketZone = useBedStore((state) => state.updateBlanketZone)
   const selectFigure = useBedStore((state) => state.selectFigure)
@@ -86,7 +87,7 @@ export function BedScene() {
 
   const blanketDrag = useRef<{ mx: number; my: number; bx: number; by: number; width: number; height: number } | null>(null)
 
-  const onBlanketMouseDown = useCallback((event: React.MouseEvent) => {
+  const onBlanketPointerDown = useCallback((event: React.PointerEvent) => {
     event.preventDefault()
     event.stopPropagation()
     if (!blanketZone) return
@@ -100,7 +101,7 @@ export function BedScene() {
       height: blanketZone.height,
     }
 
-    const onMove = (moveEvent: MouseEvent) => {
+    const onMove = (moveEvent: PointerEvent) => {
       const drag = blanketDrag.current
       if (!drag) return
 
@@ -112,12 +113,14 @@ export function BedScene() {
 
     const onUp = () => {
       blanketDrag.current = null
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
     }
 
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
   }, [bedH, bedW, blanketZone, updateBlanketZone])
 
   const twoPillows = bedConfig.widthIn >= 60
@@ -129,8 +132,12 @@ export function BedScene() {
   }, [scene])
 
   return (
-    <div ref={containerRef} className={styles.container} onClick={() => selectFigure(null)}>
-      <div className={styles.bedWrapper} style={{ width: bedW, height: bedH }}>
+    <div ref={containerRef} className={styles.container}>
+      <div
+        className={styles.bedWrapper}
+        style={{ width: bedW, height: bedH }}
+        onPointerDown={() => selectFigure(null)}
+      >
         <svg className={styles.bedSvg} width={bedW} height={bedH} viewBox={`0 0 ${bedW} ${bedH}`}>
           <defs>
             <linearGradient id="frameWood" x1="0" y1="0" x2="1" y2="1">
@@ -185,16 +192,16 @@ export function BedScene() {
         {grid.labels.map((label, index) => (
           <div
             key={`${label.x}-${label.y}-${index}`}
-            className={`${styles.hotspot} ${label.emphasis === 'hot' ? styles.hotspotPrimary : label.emphasis === 'ambient' ? styles.hotspotAmbient : ''}`}
+            className={`${styles.fieldLabel} ${label.emphasis === 'hot' ? styles.fieldLabelHot : label.emphasis === 'ambient' ? styles.fieldLabelAmbient : ''}`}
             style={{ left: label.x * bedW, top: label.y * bedH }}
           >
-            {formatTemperature(label.tempC, useCelsius)}
+            {formatFieldTemperature(label.tempC, useCelsius)}
           </div>
         ))}
 
         {figures.length > 0 ? (
           <div className={styles.legend}>
-            <div className={styles.legendTitle}>Mattress surface temp</div>
+            <div className={styles.legendTitle}>Bed surface temperature</div>
             <div className={styles.legendScale} />
             <div className={styles.legendTicks}>
               <span>{formatTemperature(grid.ambientTemp, useCelsius)}</span>
@@ -206,6 +213,17 @@ export function BedScene() {
           <div className={styles.emptyPrompt}>
             <div className={styles.emptyPromptTitle}>Empty bed.</div>
             <div className={styles.emptyPromptText}>Pick a size, add a sleeper, then drag them into place.</div>
+            <div className={styles.emptyPromptActions}>
+              <button className={styles.emptyPromptBtn} onPointerDown={(event) => event.stopPropagation()} onClick={() => addFigure('human')}>
+                Add human
+              </button>
+              <button className={styles.emptyPromptBtn} onPointerDown={(event) => event.stopPropagation()} onClick={() => addFigure('dog')}>
+                Add dog
+              </button>
+              <button className={styles.emptyPromptBtn} onPointerDown={(event) => event.stopPropagation()} onClick={() => addFigure('cat')}>
+                Add cat
+              </button>
+            </div>
           </div>
         )}
 
@@ -218,7 +236,7 @@ export function BedScene() {
               width: blanketZone.width * bedW,
               height: blanketZone.height * bedH,
             }}
-            onMouseDown={onBlanketMouseDown}
+            onPointerDown={onBlanketPointerDown}
           >
             <span className={styles.blanketLabel}>{blanketZone.weight} blanket</span>
           </div>
