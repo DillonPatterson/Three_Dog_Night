@@ -18,22 +18,18 @@ const BLANKET_WEIGHTS: Array<{ id: BlanketWeight; label: string }> = [
   { id: 'heavy', label: 'Heavy' },
 ]
 
-function figureSummary(figure: ReturnType<typeof useBedStore.getState>['figures'][0]): string {
-  if (figure.metadata.kind === 'human') {
-    return `${figure.metadata.height} cm • ${figure.metadata.weight} kg`
-  }
-
-  if (figure.metadata.kind === 'dog') {
-    return `${figure.metadata.breed} • ${figure.metadata.weight} kg`
-  }
-
-  return `${figure.metadata.breed} • ${figure.metadata.weight} kg`
-}
-
 function figureLabel(figure: ReturnType<typeof useBedStore.getState>['figures'][0]): string {
   if (figure.type === 'human') return 'Human'
   if (figure.type === 'dog') return 'Dog'
   return 'Cat'
+}
+
+function figureSummary(figure: ReturnType<typeof useBedStore.getState>['figures'][0]): string {
+  if (figure.metadata.kind === 'human') {
+    return `${figure.metadata.height} cm / ${figure.metadata.weight} kg`
+  }
+
+  return `${figure.metadata.breed} / ${figure.metadata.weight} kg`
 }
 
 export function Controls() {
@@ -73,7 +69,7 @@ export function Controls() {
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <div className={styles.sectionTitle}>Sleepers</div>
-          <div className={styles.sectionHint}>Add first. Edit after.</div>
+          <div className={styles.sectionHint}>Add, place, then tweak.</div>
         </div>
         <div className={styles.quickAddRow}>
           <button className={styles.addBtn} onClick={() => addFigure('human')}>
@@ -89,7 +85,7 @@ export function Controls() {
 
         {figures.length === 0 ? (
           <div className={styles.emptyState}>
-            Start with an empty bed, drop in a sleeper, then drag them around.
+            Start with an empty bed, add a sleeper, then drag it around.
           </div>
         ) : (
           <div className={styles.occupantList}>
@@ -110,7 +106,7 @@ export function Controls() {
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <div className={styles.sectionTitle}>Blanket</div>
-          <div className={styles.sectionHint}>Drag it on the bed.</div>
+          <div className={styles.sectionHint}>Optional insulation.</div>
         </div>
         <div className={styles.blanketRow}>
           {BLANKET_WEIGHTS.map((weight) => (
@@ -146,9 +142,7 @@ export function Controls() {
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <div className={styles.sectionTitle}>Room</div>
-          <div className={styles.sectionHint}>
-            Warmest surface: {formatTemperature(grid.maxTemp, useCelsius)}
-          </div>
+          <div className={styles.sectionHint}>Warmest surface: {formatTemperature(grid.maxTemp, useCelsius)}</div>
         </div>
         <div className={styles.sliderLabel}>
           <span>Ambient</span>
@@ -163,7 +157,7 @@ export function Controls() {
           onChange={(event) => setAmbientTemp(Number(event.target.value))}
         />
         <button className={styles.unitToggle} onClick={toggleUnit}>
-          Show in {useCelsius ? 'Fahrenheit' : 'Celsius'}
+          Show {useCelsius ? 'Fahrenheit' : 'Celsius'}
         </button>
       </section>
     </div>

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Figure as FigureType } from '../../types/figures'
-import type { OccupantThermalState } from '../../types/thermal'
 import { useBedStore } from '../../store/bedStore'
 import { getFigureBedScale } from '../../engine/figureLayout'
 import { HumanShape, DogShape, CatShape } from './FigureShape'
@@ -12,7 +11,6 @@ interface Props {
   bedH: number
   bedWidthIn: number
   bedLengthIn: number
-  thermalState?: OccupantThermalState
   isSelected: boolean
 }
 

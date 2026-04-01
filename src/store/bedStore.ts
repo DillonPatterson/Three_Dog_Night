@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Figure, FigureMeta, FigureType, PosePreset, PoseSliders } from '../types/figures'
+import type { Figure, FigureMeta, FigureType, PosePreset } from '../types/figures'
 import type { BedConfig, BedSize, BlanketZone } from '../types/bed'
 import { defaultPoseSliders, defaultPresetForType } from '../constants/poseDefaults'
 
@@ -87,7 +87,6 @@ interface BedState {
   updateFigureRotation: (id: string, rotation: number) => void
   flipFigure: (id: string) => void
   setFigurePose: (id: string, preset: PosePreset) => void
-  updateFigureSliders: (id: string, sliders: Partial<PoseSliders>) => void
   updateFigureMetadata: (id: string, metadata: FigureMeta) => void
   selectFigure: (id: string | null) => void
   setBlanketZone: (zone: BlanketZone | null) => void
@@ -96,9 +95,61 @@ interface BedState {
 
 export const useBedStore = create<BedState>((set) => ({
   bedConfig: { size: 'queen', ...BED_SIZES.queen },
-  figures: [],
+  figures: [
+    {
+      figureId: 'seed-human-1',
+      type: 'human',
+      rootPosition: { x: 0.37, y: 0.42 },
+      rootRotation: -0.1,
+      facingDirection: 'right',
+      activePosePreset: 'side',
+      poseSliders: defaultPoseSliders('human', 'side'),
+      metadata: {
+        kind: 'human',
+        height: 178,
+        weight: 82,
+        gender: 'male',
+        age: 34,
+        runsWarm: false,
+      },
+    },
+    {
+      figureId: 'seed-human-2',
+      type: 'human',
+      rootPosition: { x: 0.59, y: 0.36 },
+      rootRotation: 0.12,
+      facingDirection: 'left',
+      activePosePreset: 'curled',
+      poseSliders: defaultPoseSliders('human', 'curled'),
+      metadata: {
+        kind: 'human',
+        height: 166,
+        weight: 61,
+        gender: 'female',
+        age: 29,
+        runsWarm: true,
+      },
+    },
+    {
+      figureId: 'seed-cat',
+      type: 'cat',
+      rootPosition: { x: 0.56, y: 0.63 },
+      rootRotation: 0.18,
+      facingDirection: 'left',
+      activePosePreset: 'loaf',
+      poseSliders: defaultPoseSliders('cat', 'loaf'),
+      metadata: {
+        kind: 'cat',
+        weight: 5,
+        gender: 'female',
+        breed: 'Tabby',
+        catArchetype: 'COMPACT',
+        runsWarm: false,
+      },
+    },
+  ],
   blanketZone: null,
-  selectedFigureId: null,
+  selectedFigureId: 'seed-human-1',
 
   setBedSize: (size) => set({ bedConfig: { size, ...BED_SIZES[size] } }),
 
@@ -163,22 +214,6 @@ export const useBedStore = create<BedState>((set) => ({
           : figure,
       ),
     })),
-
-  updateFigureSliders: (id, sliders) =>
-    set((state) => ({
-      figures: state.figures.map((figure) =>
-        figure.figureId === id
-          ? {
-              ...figure,
-              poseSliders: {
-                ...figure.poseSliders,
-                ...sliders,
-              },
-            }
-          : figure,
-      ),
-    })),
-
   updateFigureMetadata: (id, metadata) =>
     set((state) => ({
       figures: state.figures.map((figure) =>

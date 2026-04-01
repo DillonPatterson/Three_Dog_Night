@@ -50,22 +50,16 @@ function blanketWeightAt(point: { x: number; y: number }, blanketZone: BlanketZo
 function warmthAnchor(figure: Figure, bedConfig: BedConfig) {
   const scale = getFigureBedScale(figure, bedConfig.widthIn, bedConfig.lengthIn)
   const layout = getFigureLayout(figure)
-  const localPoint = layout.kind === 'human' ? layout.chest.center : layout.body.center
   return {
     scale,
     layout,
-    point: transformLocalPoint(localPoint, figure, scale),
+    point: transformLocalPoint(layout.body.center, figure, scale),
   }
 }
 
 function figureWeight(figure: Figure): number {
   if (figure.metadata.kind === 'human') return figure.metadata.weight
   return figure.metadata.weight
-}
-
-function ageAdjustment(figure: Figure): number {
-  if (figure.metadata.kind !== 'human') return 0
-  return clamp((32 - figure.metadata.age) * 0.02, -0.45, 0.35)
 }
 
 function warmBias(figure: Figure): number {
@@ -103,42 +97,44 @@ function proximityMetrics(
   }
 }
 
-function occupantWarmthC(
+function baselineBodyTempC(figure: Figure): number {
+  if (figure.metadata.kind === 'human') {
+    const ageDrift = clamp((32 - figure.metadata.age) * 0.008, -0.18, 0.12)
+    return 36.8 + ageDrift
+  }
+
+  if (figure.type === 'dog') {
+    return 38.7
+  }
+
+  return 38.5
+}
+
+function bodyTemperatureC(
   figure: Figure,
   ambientTemp: number,
   blanketWeight: BlanketWeight,
-  watts: number,
-  contactAreaSqMValue: number,
   crowding: number,
   directContact: number,
 ): number {
-  const flux = watts / Math.max(contactAreaSqMValue, 0.02)
-  const massBonus = Math.sqrt(Math.max(figureWeight(figure), 2)) * 0.09
-  const ambientLift = (ambientTemp - 20) * 0.11
-  const shelter = poseShelterBonus(figure)
-  const furBenefit =
-    figure.metadata.kind === 'human'
-      ? 0
-      : insulationPenalty(figure.metadata) * 1.25
-  const crowdingLift = crowding * 0.8 + directContact * 1.1
-  const blanketLift = BLANKET_OCCUPANT_BONUS[blanketWeight]
-  const ageLift = ageAdjustment(figure)
-  const bias = warmBias(figure)
-  const baseDelta =
-    7.1 +
-    Math.sqrt(flux) * 0.18 +
-    massBonus +
-    ambientLift +
-    shelter +
-    crowdingLift +
-    blanketLift +
-    furBenefit +
-    ageLift +
-    bias
-  const cap = figure.metadata.kind === 'human' ? 34.9 : figure.type === 'dog' ? 34.4 : 34.1
-  const floor = figure.metadata.kind === 'human' ? ambientTemp + 7.6 : figure.type === 'dog' ? ambientTemp + 6.4 : ambientTemp + 5.8
+  const baseline = baselineBodyTempC(figure)
+  const ambientLift = (ambientTemp - 20) * 0.018
+  const clusterLift = crowding * 0.08 + directContact * 0.12
+  const blanketLift = BLANKET_OCCUPANT_BONUS[blanketWeight] * 0.12
+  const postureLift = poseShelterBonus(figure) * 0.08
+  const furLift = figure.metadata.kind === 'human' ? 0 : insulationPenalty(figure.metadata) * 0.18
+  const bias = warmBias(figure) * 0.35
+  const next = baseline + ambientLift + clusterLift + blanketLift + postureLift + furLift + bias
 
-  return clamp(ambientTemp + baseDelta, floor, cap)
+  if (figure.metadata.kind === 'human') {
+    return clamp(next, 36.4, 37.5)
+  }
+
+  if (figure.type === 'dog') {
+    return clamp(next, 38.3, 39.4)
+  }
+
+  return clamp(next, 38.1, 39.2)
 }
 
 function bedSurfacePeakC(
@@ -155,19 +151,23 @@ function bedSurfacePeakC(
   const furTransferPenalty =
     figure.metadata.kind === 'human'
       ? 0.15
-      : insulationPenalty(figure.metadata) * 1.6
+      : insulationPenalty(figure.metadata) * 1.5
   const blanketLift = BLANKET_SURFACE_BONUS[blanketWeight]
-  const clusteringLift = crowding * 0.35 + directContact * 0.8
+  const clusteringLift = crowding * 0.45 + directContact * 0.9
+  const postureLift = poseShelterBonus(figure) * 0.55
+  const massLift = Math.sqrt(Math.max(figureWeight(figure), 2)) * 0.05
   const peak =
-    occupantWarmth -
-    1.4 +
+    ambientTemp +
+    5.8 +
     Math.sqrt(transferDensity) * 0.08 +
+    massLift +
     blanketLift +
     clusteringLift +
-    warmBias(figure) * 0.45 -
+    warmBias(figure) * 0.35 +
+    postureLift -
     furTransferPenalty
 
-  return clamp(peak, ambientTemp + 2.2, occupantWarmth - 0.2)
+  return clamp(peak, ambientTemp + 2.2, occupantWarmth - 4.8)
 }
 
 export function computeThermalFromPose(
@@ -205,12 +205,10 @@ export function computeThermalFromPose(
 
   const occupants: OccupantThermalState[] = figures.map((figure, index) => {
     const blanketWeight = blanketWeightAt(anchors[index].point, blanketZone)
-    const warmthC = occupantWarmthC(
+    const warmthC = bodyTemperatureC(
       figure,
       ambientTemp,
       blanketWeight,
-      watts[index],
-      contactAreas[index],
       crowding[index],
       directContact[index],
     )

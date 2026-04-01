@@ -3,7 +3,6 @@ import { useBedStore } from '../../store/bedStore'
 import { useThermalStore } from '../../store/thermalStore'
 import { computeThermalFromPose } from '../../engine/thermalBridge'
 import { drawHeatmap, formatFieldTemperature, formatTemperature } from '../../engine/heatmapRenderer'
-import type { OccupantThermalState } from '../../types/thermal'
 import { Figure } from '../Figure/Figure'
 import styles from './BedScene.module.css'
 
@@ -38,7 +37,6 @@ export function BedScene() {
   const ambientTemp = useThermalStore((state) => state.ambientTemp)
   const useCelsius = useThermalStore((state) => state.useCelsius)
   const setScene = useThermalStore((state) => state.setScene)
-  const scene = useThermalStore((state) => state.scene)
   const grid = useThermalStore((state) => state.grid)
 
   useEffect(() => {
@@ -125,12 +123,6 @@ export function BedScene() {
 
   const twoPillows = bedConfig.widthIn >= 60
   const legendMid = (grid.ambientTemp + grid.maxTemp) / 2
-  const occupantStates = useMemo(() => {
-    const map = new Map<string, OccupantThermalState>()
-    scene?.occupants.forEach((occupant) => map.set(occupant.figureId, occupant))
-    return map
-  }, [scene])
-
   return (
     <div ref={containerRef} className={styles.container}>
       <div
@@ -251,7 +243,6 @@ export function BedScene() {
               bedH={bedH}
               bedWidthIn={bedConfig.widthIn}
               bedLengthIn={bedConfig.lengthIn}
-              thermalState={occupantStates.get(figure.figureId)}
               isSelected={figure.figureId === selectedFigureId}
             />
           ))}

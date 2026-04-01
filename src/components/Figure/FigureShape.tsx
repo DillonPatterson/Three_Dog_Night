@@ -1,345 +1,228 @@
 import type { Figure } from '../../types/figures'
-import type { LimbGeometry, LocalPoint } from '../../engine/figureLayout'
 import { getFigureLayout } from '../../engine/figureLayout'
 
-interface PetPalette {
-  body: string
-  bodyShade: string
-  accent: string
-  outline: string
-  shadow: string
-}
-
-interface HumanPalette {
-  skin: string
-  skinShade: string
-  pajama: string
-  pajamaShade: string
-  hair: string
-  outline: string
-  shadow: string
-}
-
-function paletteForHuman(figure: Figure): HumanPalette {
-  const isFemale = figure.metadata.kind === 'human' && figure.metadata.gender === 'female'
-  const isMale = figure.metadata.kind === 'human' && figure.metadata.gender === 'male'
-
-  return isFemale
-    ? {
-        skin: '#f3d2bb',
-        skinShade: '#e3b08b',
-        pajama: '#d38d97',
-        pajamaShade: '#b96d7b',
-        hair: '#8d4e5b',
-        outline: 'rgba(87, 59, 48, 0.42)',
-        shadow: 'rgba(82, 57, 38, 0.17)',
-      }
-    : isMale
-    ? {
-        skin: '#efc7a3',
-        skinShade: '#d89f74',
-        pajama: '#7ea0c7',
-        pajamaShade: '#5d7fa8',
-        hair: '#5b4a3d',
-        outline: 'rgba(83, 59, 42, 0.42)',
-        shadow: 'rgba(78, 52, 34, 0.17)',
-      }
-    : {
-        skin: '#efcbb0',
-        skinShade: '#dea77d',
-        pajama: '#998fd3',
-        pajamaShade: '#786eb3',
-        hair: '#6e5847',
-        outline: 'rgba(88, 62, 43, 0.42)',
-        shadow: 'rgba(78, 52, 34, 0.17)',
-      }
-}
-
-function paletteForPet(figure: Figure): PetPalette {
-  if (figure.type === 'dog' && figure.metadata.kind === 'dog') {
-    const swatches: Record<string, PetPalette> = {
-      SMALL_ROUND: {
-        body: '#c98758',
-        bodyShade: '#b16e3e',
-        accent: '#6c3f21',
-        outline: 'rgba(86, 56, 35, 0.42)',
-        shadow: 'rgba(66, 40, 18, 0.16)',
-      },
-      MEDIUM_ATHLETIC: {
-        body: '#bf9553',
-        bodyShade: '#a97735',
-        accent: '#654321',
-        outline: 'rgba(90, 62, 40, 0.42)',
-        shadow: 'rgba(63, 43, 18, 0.16)',
-      },
-      LARGE_BOXY: {
-        body: '#989184',
-        bodyShade: '#7e7668',
-        accent: '#5b5148',
-        outline: 'rgba(79, 69, 57, 0.42)',
-        shadow: 'rgba(57, 46, 37, 0.16)',
-      },
-      LONG_LOW: {
-        body: '#c9a065',
-        bodyShade: '#b17c3a',
-        accent: '#71421e',
-        outline: 'rgba(93, 61, 35, 0.42)',
-        shadow: 'rgba(66, 44, 22, 0.16)',
-      },
-      FLUFFY_WIDE: {
-        body: '#ddd5cd',
-        bodyShade: '#c6beb8',
-        accent: '#8f8078',
-        outline: 'rgba(98, 90, 82, 0.34)',
-        shadow: 'rgba(55, 49, 42, 0.14)',
-      },
+function humanPalette(figure: Figure) {
+  if (figure.metadata.kind !== 'human') {
+    return {
+      skin: '#efc9ac',
+      hair: '#6d584a',
+      outfit: '#8ea6cf',
+      outfitShade: '#7089b5',
+      outline: 'rgba(88, 62, 43, 0.34)',
+      shadow: 'rgba(79, 57, 38, 0.12)',
     }
-
-    return swatches[figure.metadata.breedArchetype] ?? swatches.MEDIUM_ATHLETIC
   }
 
-  const catSwatches: Record<string, PetPalette> = {
-    COMPACT: {
-      body: '#d8c8b6',
-      bodyShade: '#c0ab98',
-      accent: '#8f7869',
-      outline: 'rgba(92, 73, 60, 0.4)',
-      shadow: 'rgba(62, 46, 35, 0.14)',
-    },
-    LONG: {
-      body: '#cfc7bd',
-      bodyShade: '#b0a69b',
-      accent: '#7b6d63',
-      outline: 'rgba(86, 76, 67, 0.38)',
-      shadow: 'rgba(53, 45, 37, 0.14)',
-    },
+  if (figure.metadata.gender === 'female') {
+    return {
+      skin: '#f3d2bb',
+      hair: '#8e5f67',
+      outfit: '#d597a3',
+      outfitShade: '#c07b8d',
+      outline: 'rgba(87, 59, 48, 0.34)',
+      shadow: 'rgba(82, 57, 38, 0.12)',
+    }
   }
 
-  return catSwatches[
-    figure.metadata.kind === 'cat' ? figure.metadata.catArchetype : 'COMPACT'
-  ] ?? catSwatches.COMPACT
-}
+  if (figure.metadata.gender === 'male') {
+    return {
+      skin: '#efc7a3',
+      hair: '#615043',
+      outfit: '#89a9cf',
+      outfitShade: '#6d8bb3',
+      outline: 'rgba(83, 59, 42, 0.34)',
+      shadow: 'rgba(78, 52, 34, 0.12)',
+    }
+  }
 
-function midpoint(a: LocalPoint, b: LocalPoint): LocalPoint {
   return {
-    x: (a.x + b.x) / 2,
-    y: (a.y + b.y) / 2,
+    skin: '#efc9ac',
+    hair: '#6d584a',
+    outfit: '#9f96d7',
+    outfitShade: '#837abf',
+    outline: 'rgba(88, 62, 43, 0.34)',
+    shadow: 'rgba(78, 52, 34, 0.12)',
   }
 }
 
-function capsulePathBetween(start: LocalPoint, end: LocalPoint, width: number): string {
-  const dx = end.x - start.x
-  const dy = end.y - start.y
-  const length = Math.hypot(dx, dy) || 1
-  const radius = width / 2
-  const px = (-dy / length) * radius
-  const py = (dx / length) * radius
+function petPalette(figure: Figure) {
+  if (figure.type === 'dog') {
+    return {
+      body: '#c69a62',
+      shade: '#a9773f',
+      accent: '#6b4927',
+      outline: 'rgba(92, 64, 38, 0.34)',
+      shadow: 'rgba(67, 47, 28, 0.12)',
+    }
+  }
 
-  return `
-    M ${start.x + px} ${start.y + py}
-    L ${end.x + px} ${end.y + py}
-    A ${radius} ${radius} 0 0 1 ${end.x - px} ${end.y - py}
-    L ${start.x - px} ${start.y - py}
-    A ${radius} ${radius} 0 0 1 ${start.x + px} ${start.y + py}
-    Z
-  `
+  return {
+    body: '#d8cabd',
+    shade: '#c0ad9a',
+    accent: '#8d7868',
+    outline: 'rgba(86, 71, 60, 0.34)',
+    shadow: 'rgba(57, 46, 37, 0.12)',
+  }
 }
 
-function TailStroke({
-  limb,
-  fill,
-  outline,
-}: {
-  limb: LimbGeometry
-  fill: string
-  outline: string
-}) {
-  const path = `M ${limb.anchor.x} ${limb.anchor.y} Q ${limb.joint.x} ${limb.joint.y} ${limb.end.x} ${limb.end.y}`
-
-  return (
-    <>
-      <path d={path} fill="none" stroke={outline} strokeLinecap="round" strokeLinejoin="round" strokeWidth={limb.radius * 2.1} />
-      <path d={path} fill="none" stroke={fill} strokeLinecap="round" strokeLinejoin="round" strokeWidth={limb.radius * 1.65} />
-    </>
-  )
+function tailPath(start: { x: number; y: number }, control: { x: number; y: number }, end: { x: number; y: number }) {
+  return `M ${start.x} ${start.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`
 }
 
-function SegmentedLimb({
-  limb,
-  fill,
-  outline,
-}: {
-  limb: LimbGeometry
-  fill: string
-  outline: string
-}) {
-  const upperPath = capsulePathBetween(limb.anchor, limb.joint, limb.radius * 2.05)
-  const lowerPath = capsulePathBetween(limb.joint, limb.end, limb.radius * 1.92)
-
-  return (
-    <>
-      <path d={upperPath} fill={fill} stroke={outline} strokeWidth="0.95" />
-      <path d={lowerPath} fill={fill} stroke={outline} strokeWidth="0.95" />
-    </>
-  )
-}
-
-function HumanBody({ figure }: { figure: Figure }) {
-  const colors = paletteForHuman(figure)
+export function HumanShape({ figure }: { figure: Figure }) {
   const layout = getFigureLayout(figure)
   if (layout.kind !== 'human') return null
-
-  const shoulderCenter = midpoint(layout.leftArm.anchor, layout.rightArm.anchor)
-  const hipCenter = midpoint(layout.leftLeg.anchor, layout.rightLeg.anchor)
-  const torsoPath = capsulePathBetween(shoulderCenter, hipCenter, Math.max(layout.chest.rx * 2.02, 24))
-  const neckPath = capsulePathBetween(
-    { x: layout.head.center.x, y: layout.head.center.y + layout.head.ry * 0.84 },
-    { x: shoulderCenter.x, y: shoulderCenter.y - 1.2 },
-    5.8,
-  )
+  const palette = humanPalette(figure)
+  const bodyX = layout.body.center.x - layout.body.width / 2
+  const bodyY = layout.body.center.y - layout.body.height / 2
 
   return (
     <>
-      <ellipse cx="50" cy="95" rx={layout.hips.rx + 17} ry={layout.hips.ry + 34} fill={colors.shadow} />
-
-      <SegmentedLimb limb={layout.leftArm} fill={colors.skin} outline={colors.outline} />
-      <SegmentedLimb limb={layout.rightArm} fill={colors.skin} outline={colors.outline} />
-      <SegmentedLimb limb={layout.leftLeg} fill={colors.skin} outline={colors.outline} />
-      <SegmentedLimb limb={layout.rightLeg} fill={colors.skin} outline={colors.outline} />
-
-      <path d={torsoPath} fill={colors.pajama} stroke={colors.outline} strokeWidth="1.2" />
       <ellipse
-        cx={layout.chest.center.x}
-        cy={layout.chest.center.y}
-        rx={layout.chest.rx * 0.9}
-        ry={layout.chest.ry * 0.72}
-        fill={colors.pajamaShade}
-        opacity={0.22}
+        cx={layout.body.center.x}
+        cy={layout.body.center.y + 6}
+        rx={layout.body.width * 0.62}
+        ry={layout.body.height * 0.54}
+        fill={palette.shadow}
       />
-      <ellipse
-        cx={layout.hips.center.x}
-        cy={layout.hips.center.y}
-        rx={layout.hips.rx * 0.94}
-        ry={layout.hips.ry * 0.78}
-        fill={colors.pajamaShade}
-        opacity={0.16}
+      <rect
+        x={bodyX}
+        y={bodyY}
+        width={layout.body.width}
+        height={layout.body.height}
+        rx={layout.body.radius}
+        fill={palette.outfit}
+        stroke={palette.outline}
+        strokeWidth="1.1"
       />
-      <path d={neckPath} fill={colors.skin} stroke={colors.outline} strokeWidth="0.8" />
-
-      <ellipse
+      <rect
+        x={bodyX + 3}
+        y={bodyY + 10}
+        width={layout.body.width - 6}
+        height={layout.body.height * 0.46}
+        rx={layout.body.radius * 0.7}
+        fill={palette.outfitShade}
+        opacity={0.24}
+      />
+      <circle
         cx={layout.head.center.x}
         cy={layout.head.center.y}
-        rx={layout.head.rx * 1.05}
-        ry={layout.head.ry * 1.05}
-        fill={colors.skin}
-        stroke={colors.outline}
-        strokeWidth="1.2"
+        r={layout.head.radius}
+        fill={palette.skin}
+        stroke={palette.outline}
+        strokeWidth="1"
       />
       <path
         d={`
-          M ${layout.head.center.x - layout.head.rx * 1.04} ${layout.head.center.y - layout.head.ry * 0.08}
-          Q ${layout.head.center.x} ${layout.head.center.y - layout.head.ry * 1.24}
-          ${layout.head.center.x + layout.head.rx * 1.04} ${layout.head.center.y - layout.head.ry * 0.08}
+          M ${layout.head.center.x - layout.head.radius * 0.96} ${layout.head.center.y - layout.head.radius * 0.12}
+          Q ${layout.head.center.x} ${layout.head.center.y - layout.head.radius * 1.12}
+          ${layout.head.center.x + layout.head.radius * 0.96} ${layout.head.center.y - layout.head.radius * 0.12}
         `}
-        fill={colors.hair}
-        opacity={0.94}
+        fill={palette.hair}
       />
-      <circle cx={layout.head.center.x - layout.head.rx * 0.26} cy={layout.head.center.y - layout.head.ry * 0.06} r="1.45" fill={colors.outline} opacity="0.58" />
-      <circle cx={layout.head.center.x + layout.head.rx * 0.26} cy={layout.head.center.y - layout.head.ry * 0.06} r="1.45" fill={colors.outline} opacity="0.58" />
-      <ellipse cx={layout.head.center.x} cy={layout.head.center.y + layout.head.ry * 0.12} rx="1.35" ry="1" fill={colors.skinShade} opacity="0.72" />
+      <circle cx={layout.head.center.x - layout.head.radius * 0.28} cy={layout.head.center.y - 1} r="1.15" fill={palette.outline} opacity="0.55" />
+      <circle cx={layout.head.center.x + layout.head.radius * 0.28} cy={layout.head.center.y - 1} r="1.15" fill={palette.outline} opacity="0.55" />
       <path
-        d={`M ${layout.head.center.x - 3.3} ${layout.head.center.y + layout.head.ry * 0.44} Q ${layout.head.center.x} ${layout.head.center.y + layout.head.ry * 0.68} ${layout.head.center.x + 3.3} ${layout.head.center.y + layout.head.ry * 0.44}`}
+        d={`M ${layout.head.center.x - 3.1} ${layout.head.center.y + layout.head.radius * 0.34} Q ${layout.head.center.x} ${layout.head.center.y + layout.head.radius * 0.52} ${layout.head.center.x + 3.1} ${layout.head.center.y + layout.head.radius * 0.34}`}
         fill="none"
-        stroke={colors.outline}
-        strokeWidth="1.1"
+        stroke={palette.outline}
+        strokeWidth="0.9"
         strokeLinecap="round"
-        opacity="0.46"
+        opacity="0.45"
       />
-
-      <circle cx={layout.leftArm.end.x} cy={layout.leftArm.end.y} r="3.5" fill={colors.skin} stroke={colors.outline} strokeWidth="0.7" />
-      <circle cx={layout.rightArm.end.x} cy={layout.rightArm.end.y} r="3.5" fill={colors.skin} stroke={colors.outline} strokeWidth="0.7" />
-      <ellipse cx={layout.leftLeg.end.x} cy={layout.leftLeg.end.y} rx="7.2" ry="4.2" fill={colors.skinShade} stroke={colors.outline} strokeWidth="0.7" />
-      <ellipse cx={layout.rightLeg.end.x} cy={layout.rightLeg.end.y} rx="7.2" ry="4.2" fill={colors.skinShade} stroke={colors.outline} strokeWidth="0.7" />
     </>
   )
 }
 
-function PetBody({ figure }: { figure: Figure }) {
-  const colors = paletteForPet(figure)
+function PetShape({ figure }: { figure: Figure }) {
   const layout = getFigureLayout(figure)
   if (layout.kind !== 'pet') return null
-
-  const rearCore = {
-    x: layout.body.center.x,
-    y: layout.body.center.y + layout.body.ry * 0.42,
-  }
-  const bodyPath = capsulePathBetween(layout.chest.center, rearCore, Math.max(layout.body.rx * 1.7, 18))
+  const palette = petPalette(figure)
+  const bodyX = layout.body.center.x - layout.body.width / 2
+  const bodyY = layout.body.center.y - layout.body.height / 2
 
   return (
     <>
-      <ellipse cx={layout.body.center.x} cy={layout.body.center.y} rx={layout.body.rx + 10} ry={layout.body.ry + 18} fill={colors.shadow} />
-
-      <SegmentedLimb limb={layout.frontPaws} fill={colors.bodyShade} outline={colors.outline} />
-      <SegmentedLimb limb={layout.rearPaws} fill={colors.bodyShade} outline={colors.outline} />
-      <TailStroke limb={layout.tail} fill={colors.accent} outline={colors.outline} />
-
-      <path d={bodyPath} fill={colors.body} stroke={colors.outline} strokeWidth="1.15" />
-      <ellipse cx={layout.chest.center.x} cy={layout.chest.center.y} rx={layout.chest.rx} ry={layout.chest.ry} fill={colors.bodyShade} opacity={0.82} />
+      <ellipse
+        cx={layout.body.center.x}
+        cy={layout.body.center.y + 5}
+        rx={layout.body.width * 0.58}
+        ry={layout.body.height * 0.48}
+        fill={palette.shadow}
+      />
+      <rect
+        x={bodyX}
+        y={bodyY}
+        width={layout.body.width}
+        height={layout.body.height}
+        rx={layout.body.radius}
+        fill={palette.body}
+        stroke={palette.outline}
+        strokeWidth="1.05"
+      />
+      <rect
+        x={bodyX + 3}
+        y={bodyY + 8}
+        width={layout.body.width - 6}
+        height={layout.body.height * 0.4}
+        rx={layout.body.radius * 0.7}
+        fill={palette.shade}
+        opacity={0.22}
+      />
       <ellipse
         cx={layout.head.center.x}
         cy={layout.head.center.y}
         rx={layout.head.rx}
         ry={layout.head.ry}
-        fill={colors.bodyShade}
-        stroke={colors.outline}
-        strokeWidth="1.05"
+        fill={palette.shade}
+        stroke={palette.outline}
+        strokeWidth="1"
       />
-
       {layout.species === 'dog' ? (
         <>
-          <ellipse
-            cx={layout.head.center.x}
-            cy={layout.head.center.y + layout.head.ry * 0.4}
-            rx={layout.head.rx * 0.48}
-            ry={layout.head.ry * 0.34}
-            fill={colors.body}
-            stroke={colors.outline}
-            strokeWidth="0.85"
-          />
-          <ellipse cx={layout.head.center.x - layout.head.rx * 0.72} cy={layout.head.center.y - layout.head.ry * 0.36} rx="3.2" ry="5.2" fill={colors.accent} opacity="0.92" />
-          <ellipse cx={layout.head.center.x + layout.head.rx * 0.72} cy={layout.head.center.y - layout.head.ry * 0.36} rx="3.2" ry="5.2" fill={colors.accent} opacity="0.92" />
+          <ellipse cx={layout.head.center.x - layout.head.rx * 0.7} cy={layout.head.center.y - layout.head.ry * 0.12} rx="3" ry="5.2" fill={palette.accent} opacity="0.88" />
+          <ellipse cx={layout.head.center.x + layout.head.rx * 0.7} cy={layout.head.center.y - layout.head.ry * 0.12} rx="3" ry="5.2" fill={palette.accent} opacity="0.88" />
+          <ellipse cx={layout.head.center.x} cy={layout.head.center.y + layout.head.ry * 0.42} rx={layout.head.rx * 0.42} ry={layout.head.ry * 0.3} fill={palette.body} stroke={palette.outline} strokeWidth="0.8" />
         </>
       ) : (
         <>
           <polygon
-            points={`${layout.head.center.x - layout.head.rx * 0.68},${layout.head.center.y - layout.head.ry * 0.16} ${layout.head.center.x - layout.head.rx * 1.08},${layout.head.center.y - layout.head.ry * 1.12} ${layout.head.center.x - layout.head.rx * 0.22},${layout.head.center.y - layout.head.ry * 0.84}`}
-            fill={colors.accent}
+            points={`${layout.head.center.x - layout.head.rx * 0.62},${layout.head.center.y - layout.head.ry * 0.12} ${layout.head.center.x - layout.head.rx * 1.02},${layout.head.center.y - layout.head.ry * 1.02} ${layout.head.center.x - layout.head.rx * 0.2},${layout.head.center.y - layout.head.ry * 0.68}`}
+            fill={palette.accent}
           />
           <polygon
-            points={`${layout.head.center.x + layout.head.rx * 0.68},${layout.head.center.y - layout.head.ry * 0.16} ${layout.head.center.x + layout.head.rx * 1.08},${layout.head.center.y - layout.head.ry * 1.12} ${layout.head.center.x + layout.head.rx * 0.22},${layout.head.center.y - layout.head.ry * 0.84}`}
-            fill={colors.accent}
+            points={`${layout.head.center.x + layout.head.rx * 0.62},${layout.head.center.y - layout.head.ry * 0.12} ${layout.head.center.x + layout.head.rx * 1.02},${layout.head.center.y - layout.head.ry * 1.02} ${layout.head.center.x + layout.head.rx * 0.2},${layout.head.center.y - layout.head.ry * 0.68}`}
+            fill={palette.accent}
           />
         </>
       )}
-
-      <circle cx={layout.head.center.x - layout.head.rx * 0.24} cy={layout.head.center.y - layout.head.ry * 0.06} r="1.15" fill={colors.outline} opacity="0.56" />
-      <circle cx={layout.head.center.x + layout.head.rx * 0.24} cy={layout.head.center.y - layout.head.ry * 0.06} r="1.15" fill={colors.outline} opacity="0.56" />
-      <ellipse cx={layout.head.center.x} cy={layout.head.center.y + layout.head.ry * 0.18} rx="2.5" ry="1.7" fill={colors.outline} opacity="0.46" />
-
-      <circle cx={layout.frontPaws.end.x} cy={layout.frontPaws.end.y} r={layout.species === 'dog' ? 3.9 : 3.2} fill={colors.bodyShade} stroke={colors.outline} strokeWidth="0.65" />
-      <circle cx={layout.rearPaws.end.x} cy={layout.rearPaws.end.y} r={layout.species === 'dog' ? 3.9 : 3.2} fill={colors.bodyShade} stroke={colors.outline} strokeWidth="0.65" />
+      <circle cx={layout.head.center.x - layout.head.rx * 0.24} cy={layout.head.center.y - 0.7} r="0.95" fill={palette.outline} opacity="0.56" />
+      <circle cx={layout.head.center.x + layout.head.rx * 0.24} cy={layout.head.center.y - 0.7} r="0.95" fill={palette.outline} opacity="0.56" />
+      <ellipse cx={layout.head.center.x} cy={layout.head.center.y + layout.head.ry * 0.18} rx="1.9" ry="1.3" fill={palette.outline} opacity="0.46" />
+      <path
+        d={tailPath(layout.tail.start, layout.tail.control, layout.tail.end)}
+        fill="none"
+        stroke={palette.outline}
+        strokeWidth={layout.tail.width}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d={tailPath(layout.tail.start, layout.tail.control, layout.tail.end)}
+        fill="none"
+        stroke={palette.accent}
+        strokeWidth={layout.tail.width * 0.68}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </>
   )
 }
 
-export function HumanShape({ figure }: { figure: Figure }) {
-  return <HumanBody figure={figure} />
-}
-
 export function DogShape({ figure }: { figure: Figure }) {
-  return <PetBody figure={figure} />
+  return <PetShape figure={figure} />
 }
 
 export function CatShape({ figure }: { figure: Figure }) {
-  return <PetBody figure={figure} />
+  return <PetShape figure={figure} />
 }

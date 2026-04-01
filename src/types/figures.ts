@@ -4,12 +4,6 @@ export interface PoseSliders {
   curl: number
   stretch: number
   head: number
-  leftArm?: number
-  rightArm?: number
-  leftLeg?: number
-  rightLeg?: number
-  frontLegs?: number
-  rearLegs?: number
   tail?: number
 }
 

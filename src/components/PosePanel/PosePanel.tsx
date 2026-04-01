@@ -91,7 +91,7 @@ export function PosePanel() {
         <div>
           <div className={styles.title}>{titleForFigure(figure)}</div>
           <div className={styles.hint}>
-            Drag on the bed to move. Local warmth is the sleeper microclimate, not exact body temperature.
+            Drag on the bed to move. Use presets for the sleep shape.
           </div>
         </div>
         <button className={styles.removeBtn} onClick={() => removeFigure(figure.figureId)}>
@@ -104,7 +104,7 @@ export function PosePanel() {
           <div className={styles.cardTitle}>Temperatures</div>
           <div className={styles.metrics}>
             <div className={styles.metric}>
-              <span className={styles.metricLabel}>Local warmth</span>
+              <span className={styles.metricLabel}>Body temp</span>
               <span className={styles.metricValue}>{formatTemperature(thermalState.warmthC, useCelsius)}</span>
             </div>
             <div className={styles.metric}>
@@ -150,7 +150,7 @@ export function PosePanel() {
           ))}
         </div>
         <div className={styles.poseNote}>
-          Use presets for the sleep shape. Drag on the bed to reposition.
+          Whole-body drag handles placement. Rotate and flip live here.
         </div>
       </section>
 
